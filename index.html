@@ -653,30 +653,45 @@ function parseSpeech(raw,t){
   return out;
 }
 let rec=null;
+function openQuickText(msg){
+  const t=activeTrip();if(!t){openTripForm({name:'Thaïlande',cur:'THB'});return}
+  const sh=openSheet(`${msg?`<div class="banner"><span>🎙️</span><span>${esc(msg)}</span></div>`:''}
+  <div class="field"><input class="inp" id="qt" placeholder="Ex : 250 pad thaï en espèces" autocomplete="off" enterkeyhint="go" style="font-size:20px;padding:16px"></div>
+  <p class="help">Touche le <b>micro du clavier</b> 🎙️ (en bas à droite) et dis le montant puis ce que c'est. Tu peux aussi l'écrire.</p>
+  <div class="stickysave"><button class="btn primary" id="qGo">Continuer</button></div>`,'Dicter');
+  const q=sh.querySelector('#qt');q.focus();
+  const go=()=>{const v=q.value.trim();if(!v){q.focus();return}openEntry(parseSpeech(v,t))};
+  sh.querySelector('#qGo').onclick=go;q.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();go()}});
+}
+function tap(el,fn){let fired=0;const h=e=>{e.preventDefault();e.stopPropagation();if(fired)return;fired=1;fn()};el.addEventListener('pointerup',h);el.addEventListener('touchend',h);el.addEventListener('click',h)}
 function startDictation(){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;const t=activeTrip();
-  if(!SR){openEntry({});toast('Dictée indisponible ici : utilise le micro du clavier 🎙️',null,null,6000);return}
+  if(!t){openTripForm({name:'Thaïlande',cur:'THB'});return}
+  if(!SR||S.set.srBroken){openQuickText();return}
   const ov=document.createElement('div');ov.className='listen';
   ov.innerHTML=`<div class="mic">${ICON.mic}</div><div class="said" id="said">Je t'écoute…</div><div class="hint">Dis le montant et ce que c'est.<br>Ex : « 250 pad thaï en espèces »<br>ou « 12 euros massage par carte »</div><div class="lb"><button id="lCancel">Annuler</button><button class="ok" id="lOk">Terminé</button></div>`;
   document.body.append(ov);
-  let finalTxt='',interim='',done=false,cancelled=false;
-  try{rec=new SR()}catch(e){ov.remove();openEntry({});toast('Dictée indisponible : utilise le micro du clavier 🎙️');return}
+  let finalTxt='',interim='',done=false,started=false;
+  const close=()=>{done=true;clearTimeout(wd);ov.remove();try{rec&&rec.abort()}catch(e){}};
+  const fallback=msg=>{if(done)return;close();openQuickText(msg)};
+  const wd=setTimeout(()=>{if(!started&&!done){S.set.srBroken=true;saveSet();fallback("Le micro intégré ne répond pas sur ton iPhone. Utilise le micro du clavier : ça marche pareil.")}},3500);
+  try{rec=new SR()}catch(e){fallback('Dictée indisponible ici : utilise le micro du clavier.');return}
   rec.lang='fr-FR';rec.interimResults=true;rec.continuous=false;rec.maxAlternatives=1;
-  rec.onresult=ev=>{interim='';for(let i=ev.resultIndex;i<ev.results.length;i++){const r=ev.results[i];if(r.isFinal)finalTxt+=r[0].transcript+' ';else interim+=r[0].transcript}
+  rec.onstart=rec.onaudiostart=()=>{started=true};
+  rec.onresult=ev=>{started=true;interim='';for(let i=ev.resultIndex;i<ev.results.length;i++){const r=ev.results[i];if(r.isFinal)finalTxt+=r[0].transcript+' ';else interim+=r[0].transcript}
     ov.querySelector('#said').textContent=(finalTxt+interim).trim()||'Je t\'écoute…'};
-  const finish=()=>{if(done)return;done=true;ov.remove();if(cancelled)return;const txt=(finalTxt+interim).trim();
+  const finish=()=>{if(done)return;const txt=(finalTxt+interim).trim();close();
     if(!txt){toast('Je n\'ai rien entendu. Réessaie ou touche « Écrire ».','Écrire',()=>openEntry({}));return}
     openEntry(parseSpeech(txt,t))};
-  rec.onerror=ev=>{if(done)return;
-    const msg={'not-allowed':'Micro refusé. Autorise-le dans Réglages > Safari > Microphone (ou réglages du site), ou utilise « Écrire ».','service-not-allowed':'La dictée n\'est pas autorisée dans ce mode. Utilise le micro du clavier.','no-speech':'Je n\'ai rien entendu. Réessaie.','network':'La dictée a besoin d\'internet. Utilise « Écrire » avec le micro du clavier.','audio-capture':'Aucun micro disponible.'}[ev.error];
-    if(ev.error==='aborted')return;
-    done=true;ov.remove();
-    if(finalTxt.trim()){openEntry(parseSpeech(finalTxt.trim(),t));return}
-    toast(msg||('Erreur de dictée : '+ev.error),'Écrire',()=>openEntry({}),7000)};
+  rec.onerror=ev=>{if(done||ev.error==='aborted')return;
+    if(finalTxt.trim()||interim.trim()){finish();return}
+    if(ev.error==='not-allowed'||ev.error==='service-not-allowed'){S.set.srBroken=true;saveSet();fallback('Le micro intégré est bloqué. Utilise le micro du clavier : ça marche pareil.');return}
+    const msg={'no-speech':'Je n\'ai rien entendu. Réessaie.','network':'La dictée intégrée a besoin d\'internet.','audio-capture':'Aucun micro disponible.'}[ev.error]||('Erreur de dictée : '+ev.error);
+    close();toast(msg,'Écrire',()=>openEntry({}),7000)};
   rec.onend=finish;
-  ov.querySelector('#lOk').onclick=()=>{try{rec.stop()}catch(e){}setTimeout(finish,700)};
-  ov.querySelector('#lCancel').onclick=()=>{cancelled=true;try{rec.abort()}catch(e){}done=true;ov.remove()};
-  try{rec.start()}catch(e){ov.remove();openEntry({});toast('Dictée indisponible : utilise le micro du clavier 🎙️')}
+  tap(ov.querySelector('#lOk'),()=>{if(!started){fallback();return}try{rec.stop()}catch(e){}setTimeout(finish,800)});
+  tap(ov.querySelector('#lCancel'),close);
+  try{rec.start()}catch(e){fallback('Dictée indisponible ici : utilise le micro du clavier.')}
 }
 
 /* ========= Voyages ========= */
@@ -726,13 +741,14 @@ function openTripSwitch(){
 let preparedFile=null;
 function openSettings(){const t=activeTrip();
   const r=t&&t.cur!=='EUR'?quickRate(t.cur,today()):null;
-  const html=`<div class="card"><div class="switch"><span><b>Lieu automatique</b><div class="small muted">Note l'endroit de chaque dépense du jour.</div></span><input type="checkbox" id="sGeo" ${S.set.geoOn?'checked':''}></div></div>
+  const html=`<div class="card"><div class="switch"><span><b>Lieu automatique</b><div class="small muted">Note l'endroit de chaque dépense du jour.</div></span><input type="checkbox" id="sGeo" ${S.set.geoOn?'checked':''}></div><div class="switch" style="border-top:1px solid var(--line);margin-top:8px;padding-top:12px"><span><b>Micro intégré pour dicter</b><div class="small muted">Désactivé : « Dicter » ouvre le clavier, et tu utilises son micro.</div></span><input type="checkbox" id="sSR" ${S.set.srBroken?'':'checked'}></div></div>
   ${t&&t.cur!=='EUR'?`<div class="card"><b>Taux de change</b><div class="small muted" style="margin-top:4px">${r&&r.r?`1 € = ${fmtLoc(1/r.r,t.cur)} · 1 ${CUR[t.cur].s} = ${r.r.toLocaleString('fr-FR',{maximumSignificantDigits:4})} €${r.est?' (dernier taux connu)':''}${r.src?' · source : '+esc(r.src):''}`:'Pas encore de taux : il sera chargé dès qu\'il y aura du réseau.'}</div><div class="small muted" style="margin-top:6px">Chaque dépense garde le taux du jour où elle a été faite. Hors connexion, le dernier taux connu est utilisé, puis corrigé au retour du réseau.</div></div>`:''}
   <h2 class="sec">Sauvegarde</h2><div class="card"><div class="small muted" style="margin-bottom:12px">${S.set.lastBackup?'Dernière sauvegarde : '+new Date(S.set.lastBackup).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'}):'Aucune sauvegarde pour l\'instant.'} Enregistre le fichier dans Fichiers ou iCloud Drive : il sert aussi à changer de téléphone.</div>
   <button class="btn primary" id="bkPrep">Préparer la sauvegarde</button><button class="btn" id="bkRest">Restaurer une sauvegarde</button><input type="file" id="bkFile" accept=".json,application/json" style="display:none"></div>
   <h2 class="sec">À savoir</h2><div class="card small" style="line-height:1.55">• Ouvre toujours l'appli depuis son icône : Safari et l'icône ont des données séparées.<br>• Supprimer l'icône efface les données : sauvegarde d'abord.<br>• Taux : Banque centrale européenne (frankfurter), avec d'autres sources en secours. Noms de lieux : OpenStreetMap.</div>
   <button class="btn danger" id="wipe">Tout effacer</button>`;
   const sh=openSheet(html,'Réglages');
+  sh.querySelector('#sSR').onchange=e=>{S.set.srBroken=!e.target.checked;saveSet()};
   sh.querySelector('#sGeo').onchange=e=>{S.set.geoOn=e.target.checked;saveSet();if(e.target.checked)locate()};
   const prep=sh.querySelector('#bkPrep');
   prep.onclick=async()=>{
