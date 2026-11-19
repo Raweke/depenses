@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0F7B68">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Dépenses">
+<title>Dépenses</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="icon" href="icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
+<style>
+:root{
+  --bg:#F5F1E8; --surface:#FFFFFF; --surface2:#EFE9DC; --ink:#1B2421; --muted:#6B7570; --line:#E2DCCD;
+  --primary:#0F7B68; --primary-ink:#FFFFFF; --primary-soft:#D7EDE6; --accent:#F29E1F; --danger:#D2452F; --good:#0F7B68;
+  --shadow:0 6px 24px rgba(27,36,33,.10);
+  --safe-top:env(safe-area-inset-top); --safe-bot:env(safe-area-inset-bottom);
+  --head:'Bricolage Grotesque',system-ui,sans-serif; --body:'Figtree',system-ui,-apple-system,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0F1513; --surface:#18201D; --surface2:#212B27; --ink:#E8EFEC; --muted:#93A09A; --line:#2A3531;
+  --primary:#2BB597; --primary-ink:#06231C; --primary-soft:#173A31; --accent:#F5B04A; --danger:#F06A52; --good:#2BB597;
+  --shadow:0 6px 24px rgba(0,0,0,.4);
+}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;-webkit-text-size-adjust:100%}
+body{min-height:100vh;overscroll-behavior-y:none}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;padding:0}
+input,select,textarea{font:inherit;color:var(--ink)}
+.num{font-variant-numeric:tabular-nums;font-family:var(--head)}
+header.top{position:fixed;top:0;left:0;right:0;z-index:20;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);padding:calc(var(--safe-top) + 8px) 16px 8px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line)}
+.trip-btn{display:flex;align-items:center;gap:8px;min-width:0;flex:1;text-align:left}
+.trip-btn .flag{font-size:26px;line-height:1}
+.trip-btn .t1{font-family:var(--head);font-weight:800;font-size:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.trip-btn .t2{font-size:12.5px;color:var(--muted)}
+.trip-btn .chev{color:var(--muted);font-size:13px}
+.icon-btn{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:var(--surface);box-shadow:0 1px 0 var(--line)}
+.icon-btn svg{width:22px;height:22px}
+main{padding:calc(var(--safe-top) + 74px) 16px calc(var(--safe-bot) + 100px);max-width:640px;margin:0 auto}
+nav.tabs{position:fixed;bottom:0;left:0;right:0;z-index:20;background:var(--surface);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(5,1fr);padding:6px 6px calc(var(--safe-bot) + 6px)}
+nav.tabs button{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11.5px;font-weight:600;color:var(--muted);padding:4px 0}
+nav.tabs button svg{width:24px;height:24px}
+nav.tabs button.on{color:var(--primary)}
+nav.tabs .plus{align-self:center}
+nav.tabs .plus span{width:56px;height:56px;border-radius:18px;background:var(--primary);color:var(--primary-ink);display:grid;place-items:center;margin-top:-22px;box-shadow:0 6px 18px color-mix(in srgb,var(--primary) 45%,transparent)}
+nav.tabs .plus span svg{width:30px;height:30px}
+.card{background:var(--surface);border-radius:20px;padding:16px;box-shadow:var(--shadow);margin-bottom:14px}
+h2.sec{font-family:var(--head);font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:22px 4px 10px;font-weight:700}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+/* Today hero */
+.hero .lab{font-size:13px;color:var(--muted);font-weight:600}
+.hero .big{font-family:var(--head);font-weight:800;font-size:40px;line-height:1.05;letter-spacing:-.01em}
+.hero .eur{font-family:var(--head);font-size:18px;color:var(--muted);font-weight:600}
+.hero .row{display:flex;justify-content:space-between;align-items:flex-end;gap:12px}
+.budgetline{margin-top:12px;font-size:14px;font-weight:600}
+.bar{height:10px;border-radius:6px;background:var(--surface2);overflow:hidden;margin-top:8px}
+.bar>i{display:block;height:100%;background:var(--primary);border-radius:6px}
+.bar.over>i{background:var(--danger)}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0 4px}
+.bigbtn{border-radius:20px;padding:18px 12px;display:flex;flex-direction:column;align-items:center;gap:8px;font-weight:700;font-size:17px;box-shadow:var(--shadow)}
+.bigbtn svg{width:32px;height:32px}
+.bigbtn.write{background:var(--surface);color:var(--ink)}
+.bigbtn.talk{background:var(--primary);color:var(--primary-ink)}
+.good{color:var(--good)} .bad{color:var(--danger)}
+/* Day list */
+.dayhead{display:flex;justify-content:space-between;align-items:baseline;margin:22px 4px 8px;gap:10px}
+.dayhead .d{font-family:var(--head);font-weight:700;font-size:17px}
+.dayhead .d small{font-family:var(--body);font-weight:600;color:var(--muted);font-size:12.5px;margin-left:6px}
+.dayhead .t{text-align:right;white-space:nowrap}
+.dayhead .t b{font-family:var(--head);font-size:17px}
+.dayhead .t span{display:block;font-size:12.5px;color:var(--muted)}
+.list{background:var(--surface);border-radius:18px;box-shadow:var(--shadow);overflow:hidden}
+.exp{display:flex;align-items:center;gap:12px;padding:12px 14px;border-top:1px solid var(--line);width:100%;text-align:left}
+.exp:first-child{border-top:0}
+.exp .ic{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-size:21px;flex:none}
+.exp .mid{flex:1;min-width:0}
+.exp .l1{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.exp .l2{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.exp .amt{text-align:right;white-space:nowrap}
+.exp .amt b{font-family:var(--head);font-size:17px;font-weight:700}
+.exp .amt span{display:block;font-size:12.5px;color:var(--muted)}
+.est{color:var(--accent)}
+.daybudget{font-size:12px;margin:-2px 4px 8px;color:var(--muted)}
+/* Empty */
+.empty{text-align:center;padding:26px 18px;color:var(--muted)}
+.empty .e{font-size:44px}
+.empty h3{color:var(--ink);font-family:var(--head);margin:8px 0 6px}
+.empty ol{text-align:left;max-width:320px;margin:12px auto 0;padding-left:20px;line-height:1.6}
+/* Sheets */
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.38);z-index:50;opacity:0;transition:opacity .2s}
+.scrim.show{opacity:1}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:51;background:var(--bg);border-radius:24px 24px 0 0;max-height:94vh;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:10px 18px calc(var(--safe-bot) + 18px);transform:translateY(100%);transition:transform .26s cubic-bezier(.2,.8,.2,1);max-width:640px;margin:0 auto}
+.sheet.show{transform:none}
+.sheet .grab{width:40px;height:5px;border-radius:3px;background:var(--line);margin:0 auto 10px}
+.sheet h3{font-family:var(--head);font-size:22px;margin:4px 0 14px;display:flex;justify-content:space-between;align-items:center}
+.sheet h3 .x{width:34px;height:34px;border-radius:50%;background:var(--surface2);display:grid;place-items:center;font-size:18px;color:var(--muted)}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin:0 2px 6px}
+.inp{width:100%;background:var(--surface);border:1.5px solid var(--line);border-radius:14px;padding:13px 14px;font-size:17px;outline:none;-webkit-appearance:none;appearance:none}
+.inp:focus{border-color:var(--primary)}
+select.inp{background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 20px) 50%,calc(100% - 14px) 50%;background-size:6px 6px;background-repeat:no-repeat;padding-right:36px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.amtrow{display:flex;align-items:center;gap:10px;background:var(--surface);border-radius:20px;padding:6px 8px 6px 18px;border:1.5px solid var(--line)}
+.amtrow:focus-within{border-color:var(--primary)}
+.amtrow input{flex:1;min-width:0;border:0;background:none;font-family:var(--head);font-weight:800;font-size:44px;outline:none;padding:4px 0}
+.curT{min-width:64px;height:56px;border-radius:16px;background:var(--primary-soft);color:var(--primary);font-family:var(--head);font-weight:800;font-size:24px;padding:0 10px}
+.curT small{display:block;font-size:10px;font-family:var(--body);font-weight:600;margin-top:-2px}
+.conv{font-size:15px;color:var(--muted);margin:8px 6px 16px;font-weight:600;min-height:20px}
+.chips{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+.chip{background:var(--surface);border:1.5px solid var(--line);border-radius:14px;padding:9px 2px 7px;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:12px;font-weight:600}
+.chip .em{font-size:22px}
+.chip.on{border-color:var(--primary);background:var(--primary-soft);color:var(--primary)}
+.seg{display:grid;grid-template-columns:1fr 1fr;background:var(--surface2);border-radius:14px;padding:4px;gap:4px;margin-bottom:14px}
+.seg button{border-radius:11px;padding:11px 6px;font-weight:600;font-size:15px;color:var(--muted)}
+.seg button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 4px rgba(0,0,0,.12)}
+.whenrow{display:flex;align-items:center;justify-content:space-between;background:var(--surface);border-radius:14px;padding:12px 14px;margin-bottom:10px;font-weight:600;width:100%;text-align:left}
+.whenrow span.muted{font-weight:500;font-size:14px}
+.locline{font-size:13.5px;color:var(--muted);margin:2px 4px 14px}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border-radius:16px;padding:15px;font-weight:700;font-size:17px;background:var(--surface);box-shadow:0 1px 0 var(--line)}
+.btn.primary{background:var(--primary);color:var(--primary-ink);box-shadow:none}
+.btn.danger{color:var(--danger);background:transparent;box-shadow:none;margin-top:6px}
+.btn.ghost{background:transparent;box-shadow:none;color:var(--primary)}
+.btn+.btn{margin-top:10px}
+.stickysave{position:sticky;bottom:calc(-18px - var(--safe-bot));margin:0 -18px;padding:10px 18px calc(var(--safe-bot) + 18px);background:linear-gradient(to bottom,transparent,var(--bg) 14px)}
+.heard{background:var(--surface2);border-radius:12px;padding:9px 12px;font-size:14px;margin-bottom:12px;color:var(--muted)}
+.err{color:var(--danger);font-size:14px;font-weight:600;margin:-6px 4px 12px;min-height:0}
+.shake{animation:sh .35s}
+@keyframes sh{20%,60%{transform:translateX(-7px)}40%,80%{transform:translateX(7px)}}
+/* Listening */
+.listen{position:fixed;inset:0;z-index:60;background:color-mix(in srgb,var(--primary) 94%,#000);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 26px calc(var(--safe-bot) + 30px);text-align:center}
+.listen .mic{width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.18);display:grid;place-items:center;position:relative}
+.listen .mic svg{width:56px;height:56px}
+.listen .mic::before,.listen .mic::after{content:"";position:absolute;inset:0;border-radius:50%;border:2px solid rgba(255,255,255,.5);animation:pulse 1.6s infinite}
+.listen .mic::after{animation-delay:.8s}
+@keyframes pulse{from{transform:scale(1);opacity:1}to{transform:scale(1.9);opacity:0}}
+.listen .said{font-family:var(--head);font-size:28px;font-weight:700;margin:34px 0 10px;min-height:76px}
+.listen .hint{opacity:.8;font-size:15px;line-height:1.5}
+.listen .lb{display:flex;gap:12px;margin-top:34px;width:100%;max-width:360px}
+.listen .lb button{flex:1;border-radius:16px;padding:15px;font-weight:700;font-size:17px;background:rgba(255,255,255,.18);color:#fff}
+.listen .lb button.ok{background:#fff;color:var(--primary)}
+/* Toast */
+.toast{position:fixed;left:16px;right:16px;bottom:calc(var(--safe-bot) + 92px);z-index:70;background:#1B2421;color:#fff;border-radius:16px;padding:13px 16px;display:flex;align-items:center;gap:12px;box-shadow:0 10px 30px rgba(0,0,0,.3);transform:translateY(20px);opacity:0;transition:.22s;max-width:600px;margin:0 auto;pointer-events:none}
+.toast.show{transform:none;opacity:1;pointer-events:auto}
+.toast .tx{flex:1;font-size:15px}
+.toast button{color:#7FE0C8;font-weight:700;font-size:15px}
+/* Bilan */
+.stat3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
+.stat3 div{background:var(--surface2);border-radius:14px;padding:10px}
+.stat3 b{display:block;font-family:var(--head);font-size:18px}
+.stat3 span{font-size:12px;color:var(--muted);font-weight:600}
+.trow{display:flex;align-items:center;gap:10px;margin:12px 0}
+.trow .em{font-size:22px;width:30px;text-align:center}
+.trow .mid{flex:1}
+.trow .top{display:flex;justify-content:space-between;font-weight:600;font-size:15px}
+.trow .top span{font-family:var(--head)}
+.trow .sub{display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted);margin-top:2px}
+.trow .bar{height:8px;margin-top:5px}
+.split{display:flex;height:14px;border-radius:8px;overflow:hidden;margin:12px 0 10px;background:var(--surface2)}
+.split i{display:block;height:100%}
+.legend{display:flex;justify-content:space-between;font-size:14px;gap:10px}
+.legend b{font-family:var(--head)}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.chartwrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -6px;padding:0 6px}
+/* Voyages */
+.trip{display:flex;align-items:center;gap:12px;padding:14px;border-top:1px solid var(--line);width:100%;text-align:left}
+.trip:first-child{border-top:0}
+.trip .flag{font-size:30px}
+.trip .mid{flex:1;min-width:0}
+.trip .n{font-weight:700;font-size:17px}
+.trip .s{font-size:13px;color:var(--muted)}
+.trip .on{font-size:12px;font-weight:700;color:var(--primary);background:var(--primary-soft);border-radius:8px;padding:3px 8px}
+.edit{color:var(--primary);font-weight:600;font-size:14px;padding:8px}
+/* Map */
+#map{height:56vh;border-radius:20px;overflow:hidden;box-shadow:var(--shadow);background:var(--surface2)}
+.leaflet-popup-content{font-family:var(--body);font-size:14px}
+.place{display:flex;align-items:center;gap:12px;padding:12px 14px;border-top:1px solid var(--line)}
+.place:first-child{border-top:0}
+.place .mid{flex:1;min-width:0}
+.place .n{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.place .s{font-size:12.5px;color:var(--muted)}
+.place .amt{text-align:right;white-space:nowrap}
+.place .amt b{font-family:var(--head)}
+.place .amt span{display:block;font-size:12.5px;color:var(--muted)}
+.banner{background:var(--primary-soft);border-radius:16px;padding:12px 14px;font-size:14px;display:flex;gap:10px;align-items:flex-start;margin-bottom:14px}
+.banner .x{margin-left:auto;color:var(--muted);font-size:18px;padding:0 4px}
+.banner b{color:var(--primary)}
+.switch{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 0}
+.switch input{width:50px;height:30px;-webkit-appearance:none;appearance:none;background:var(--line);border-radius:16px;position:relative;transition:.2s;flex:none}
+.switch input::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.switch input:checked{background:var(--primary)}
+.switch input:checked::after{left:23px}
+.welcome{text-align:center;padding:10px 6px 0}
+.welcome .logo{width:84px;height:84px;border-radius:22px;margin:10px auto 14px;display:block;box-shadow:var(--shadow)}
+.welcome h1{font-family:var(--head);font-size:30px;margin:0 0 8px}
+.welcome p{color:var(--muted);line-height:1.5;margin:0 0 18px}
+.help{font-size:13px;color:var(--muted);margin:-6px 4px 14px;line-height:1.45}
+</style>
+</head>
+<body>
+<header class="top" id="top"></header>
+<main id="main"></main>
+<nav class="tabs" id="tabs">
+  <button data-tab="journal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Dépenses</button>
+  <button data-tab="bilan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V10M12 20V4M19 20v-7"/></svg>Bilan</button>
+  <button class="plus" id="plusBtn" aria-label="Ajouter une dépense"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></button>
+  <button data-tab="carte"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>Carte</button>
+  <button data-tab="voyages"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="7" width="16" height="13" rx="2.5"/><path d="M9 7V5a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 15 5v2M4 12h16"/></svg>Voyages</button>
+</nav>
+<div class="toast" id="toast"><div class="tx"></div><button></button></div>
+
+<script>
+'use strict';
+/* ========= Données de référence ========= */
+const CUR={
+ THB:{s:'฿',n:'Baht thaïlandais',d:2,f:'🇹🇭',w:['baht','bahts','bath','baths']},
+ EUR:{s:'€',n:'Euro',d:2,f:'🇪🇺',w:['euro','euros']},
+ USD:{s:'$',n:'Dollar américain',d:2,f:'🇺🇸',w:['dollar','dollars']},
+ GBP:{s:'£',n:'Livre sterling',d:2,f:'🇬🇧',w:['livre','livres']},
+ CHF:{s:'CHF',n:'Franc suisse',d:2,f:'🇨🇭',w:['franc','francs']},
+ JPY:{s:'¥',n:'Yen japonais',d:0,f:'🇯🇵',w:['yen','yens']},
+ VND:{s:'₫',n:'Dong vietnamien',d:0,f:'🇻🇳',w:['dong','dongs']},
+ LAK:{s:'₭',n:'Kip laotien',d:0,f:'🇱🇦',w:['kip','kips']},
+ KHR:{s:'៛',n:'Riel cambodgien',d:0,f:'🇰🇭',w:['riel','riels']},
+ MMK:{s:'K',n:'Kyat birman',d:0,f:'🇲🇲',w:['kyat','kyats']},
+ MYR:{s:'RM',n:'Ringgit malaisien',d:2,f:'🇲🇾',w:['ringgit','ringgits']},
+ SGD:{s:'S$',n:'Dollar de Singapour',d:2,f:'🇸🇬',w:['dollar','dollars']},
+ IDR:{s:'Rp',n:'Roupie indonésienne',d:0,f:'🇮🇩',w:['roupie','roupies','rupiah']},
+ PHP:{s:'₱',n:'Peso philippin',d:2,f:'🇵🇭',w:['peso','pesos']},
+ CNY:{s:'¥',n:'Yuan chinois',d:2,f:'🇨🇳',w:['yuan','yuans']},
+ HKD:{s:'HK$',n:'Dollar de Hong Kong',d:2,f:'🇭🇰',w:['dollar','dollars']},
+ TWD:{s:'NT$',n:'Dollar taïwanais',d:0,f:'🇹🇼',w:['dollar','dollars']},
+ KRW:{s:'₩',n:'Won sud-coréen',d:0,f:'🇰🇷',w:['won','wons']},
+ INR:{s:'₹',n:'Roupie indienne',d:2,f:'🇮🇳',w:['roupie','roupies']},
+ LKR:{s:'Rs',n:'Roupie srilankaise',d:0,f:'🇱🇰',w:['roupie','roupies']},
+ NPR:{s:'Rs',n:'Roupie népalaise',d:0,f:'🇳🇵',w:['roupie','roupies']},
+ AUD:{s:'A$',n:'Dollar australien',d:2,f:'🇦🇺',w:['dollar','dollars']},
+ NZD:{s:'NZ$',n:'Dollar néo-zélandais',d:2,f:'🇳🇿',w:['dollar','dollars']},
+ CAD:{s:'C$',n:'Dollar canadien',d:2,f:'🇨🇦',w:['dollar','dollars']},
+ MAD:{s:'DH',n:'Dirham marocain',d:2,f:'🇲🇦',w:['dirham','dirhams']},
+ TND:{s:'DT',n:'Dinar tunisien',d:2,f:'🇹🇳',w:['dinar','dinars']},
+ TRY:{s:'₺',n:'Livre turque',d:2,f:'🇹🇷',w:['livre','livres']},
+ MXN:{s:'MX$',n:'Peso mexicain',d:2,f:'🇲🇽',w:['peso','pesos']},
+ BRL:{s:'R$',n:'Réal brésilien',d:2,f:'🇧🇷',w:['real','reais']},
+ AED:{s:'AED',n:'Dirham des Émirats',d:2,f:'🇦🇪',w:['dirham','dirhams']},
+};
+const TYPES=[
+ {k:'repas',n:'Repas',e:'🍜',c:'#F29E1F',w:['resto','restau','restaurant','repas','manger','dejeuner','diner','petit dej','petit-dej','petit dejeuner','pad thai','padthai','street food','soupe','riz','nouilles','burger','pizza','snack','glace','dessert','boulangerie','brunch','sandwich','khao','som tam','curry','mango sticky','food']},
+ {k:'transport',n:'Transport',e:'🛺',c:'#3B82C4',w:['taxi','grab','bolt','uber','bus','train','avion','vol','ferry','bateau','tuk','tuktuk','tuk-tuk','moto','scooter','essence','songthaew','metro','bts','mrt','navette','minivan','van','parking','peage','velo','location']},
+ {k:'logement',n:'Logement',e:'🏨',c:'#8B5CF6',w:['hotel','auberge','airbnb','chambre','nuit','nuits','guesthouse','guest house','logement','bungalow','hostel','resort','dortoir']},
+ {k:'activites',n:'Activités',e:'🎟️',c:'#E25B8A',w:['entree','visite','temple','musee','excursion','massage','plongee','snorkeling','tour','cours','parc','billet','spectacle','muay','boxe','spa','kayak','plage','cascade','randonnee','trek']},
+ {k:'courses',n:'Courses',e:'🛒',c:'#14A38B',w:['courses','7-eleven','seven','7 eleven','supermarche','marche','eau','souvenir','souvenirs','vetement','vetements','shopping','sim','carte sim','creme solaire','lessive','laverie','savon','cadeau']},
+ {k:'sorties',n:'Sorties',e:'🍹',c:'#EF6F3C',w:['biere','bieres','cocktail','cocktails','bar','boite','soiree','boisson','boissons','cafe','smoothie','jus','coca','the','chang','leo','singha','vin']},
+ {k:'sante',n:'Santé',e:'💊',c:'#D2452F',w:['pharmacie','medecin','docteur','hopital','medicament','medicaments','assurance','dentiste','clinique']},
+ {k:'autre',n:'Autre',e:'📦',c:'#7A8580',w:[]},
+];
+const TYPE=Object.fromEntries(TYPES.map(t=>[t.k,t]));
+const PAY={cash:{n:'Espèces',e:'💵',c:'#F29E1F'},card:{n:'Carte',e:'💳',c:'#3B82C4'}};
+
+/* ========= Outils ========= */
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid=p=>p+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const pad=n=>String(n).padStart(2,'0');
+const dstr=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+const today=()=>dstr(new Date());
+const nowTime=()=>{const d=new Date();return pad(d.getHours())+':'+pad(d.getMinutes())};
+const dayDiff=(a,b)=>Math.round((new Date(b+'T12:00')-new Date(a+'T12:00'))/864e5);
+const addDays=(a,n)=>{const d=new Date(a+'T12:00');d.setDate(d.getDate()+n);return dstr(d)};
+const cap=s=>s?s.charAt(0).toUpperCase()+s.slice(1):s;
+const r2=v=>Math.round(v*100)/100;
+const norm=s=>s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+function fmtLoc(v,cur,opt={}){if(v==null||isNaN(v))return '–';const c=CUR[cur]||{s:cur,d:2};const dec=opt.round?0:(Number.isInteger(r2(v))?0:c.d);return new Intl.NumberFormat('fr-FR',{minimumFractionDigits:dec,maximumFractionDigits:dec}).format(v)+' '+c.s}
+function fmtEur(v,opt={}){if(v==null||isNaN(v))return '– €';const dec=opt.round?0:2;return new Intl.NumberFormat('fr-FR',{minimumFractionDigits:dec,maximumFractionDigits:dec}).format(v)+' €'}
+function dayLabel(ds){const t=today();if(ds===t)return "Aujourd'hui";if(ds===addDays(t,-1))return 'Hier';return cap(new Date(ds+'T12:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'}))}
+function shortDate(ds){return new Date(ds+'T12:00').toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}
+function parseNum(s){if(s==null)return NaN;s=String(s).replace(/[\s  ]/g,'').replace(',','.');if(!/^\d*\.?\d*$/.test(s)||s===''||s==='.')return NaN;return parseFloat(s)}
+
+/* ========= IndexedDB ========= */
+let db;
+function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open('depenses',1);r.onupgradeneeded=()=>{const d=r.result;d.createObjectStore('trips',{keyPath:'id'});d.createObjectStore('expenses',{keyPath:'id'});d.createObjectStore('kv');d.createObjectStore('geo',{keyPath:'k'})};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+function tx(store,mode,fn){return new Promise((res,rej)=>{const t=db.transaction(store,mode);const s=t.objectStore(store);let out;const r=fn(s);if(r)r.onsuccess=()=>{out=r.result};t.oncomplete=()=>res(out);t.onerror=()=>rej(t.error);t.onabort=()=>rej(t.error)})}
+const dbAll=s=>tx(s,'readonly',st=>st.getAll());
+const dbPut=(s,v,k)=>tx(s,'readwrite',st=>k===undefined?st.put(v):st.put(v,k));
+const dbDel=(s,k)=>tx(s,'readwrite',st=>st.delete(k));
+const kvGet=k=>tx('kv','readonly',st=>st.get(k));
+const kvSet=(k,v)=>dbPut('kv',v,k);
+
+/* ========= État ========= */
+const S={trips:[],exps:[],set:{active:null,geoOn:true,lastPay:'cash',lastBackup:null,hideInstall:false},rates:{},geo:{},tab:'journal'};
+const saveSet=()=>kvSet('settings',S.set);
+const saveRates=()=>kvSet('rates',S.rates);
+const activeTrip=()=>S.trips.find(t=>t.id===S.set.active)||null;
+const tripExps=t=>S.exps.filter(e=>e.trip===t.id);
+async function putExp(e){const i=S.exps.findIndex(x=>x.id===e.id);if(i<0)S.exps.push(e);else S.exps[i]=e;await dbPut('expenses',e)}
+async function putTrip(t){const i=S.trips.findIndex(x=>x.id===t.id);if(i<0)S.trips.push(t);else S.trips[i]=t;await dbPut('trips',t)}
+
+/* ========= Taux de change ========= */
+// rate = valeur en euros d'une unité de la devise locale
+function quickRate(cur,date){
+  if(cur==='EUR')return {r:1,est:false};
+  const k=S.rates[cur+'|'+date];if(k)return {r:k.r,est:false,src:k.src};
+  const last=S.rates[cur+'|last'];if(last)return {r:last.r,est:true,src:last.src,date:last.date};
+  return {r:null,est:true};
+}
+async function fetchJSON(url,ms=7000){const c=new AbortController();const t=setTimeout(()=>c.abort(),ms);try{const r=await fetch(url,{signal:c.signal,cache:'no-store'});if(!r.ok)throw new Error('HTTP '+r.status);return await r.json()}finally{clearTimeout(t)}}
+async function fetchRate(cur,date){
+  const isToday=date>=today();const lc=cur.toLowerCase();
+  const tries=[
+    async()=>{const j=await fetchJSON(`https://api.frankfurter.dev/v1/${isToday?'latest':date}?base=${cur}&symbols=EUR`);return {r:j.rates.EUR,src:'BCE'}},
+    async()=>{if(!isToday)throw 0;const j=await fetchJSON(`https://open.er-api.com/v6/latest/${cur}`);if(j.result!=='success')throw 0;return {r:j.rates.EUR,src:'ExchangeRate-API'}},
+    async()=>{const j=await fetchJSON(`https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@${isToday?'latest':date}/v1/currencies/${lc}.json`);return {r:j[lc].eur,src:'currency-api'}},
+    async()=>{const j=await fetchJSON(`https://open.er-api.com/v6/latest/${cur}`);if(j.result!=='success')throw 0;return {r:j.rates.EUR,src:'ExchangeRate-API (actuel)',approx:true}},
+  ];
+  for(const f of tries){try{const x=await f();if(x&&x.r>0)return x}catch(e){}}
+  return null;
+}
+const rateBusy={};
+async function exactRate(cur,date){
+  if(cur==='EUR')return {r:1};
+  const key=cur+'|'+date;if(S.rates[key])return S.rates[key];
+  if(!navigator.onLine)return null;
+  if(rateBusy[key])return rateBusy[key];
+  rateBusy[key]=(async()=>{
+    const x=await fetchRate(cur,date);delete rateBusy[key];
+    if(!x)return null;
+    const v={r:x.r,src:x.src,at:Date.now()};
+    if(!x.approx)S.rates[key]=v;
+    const last=S.rates[cur+'|last'];
+    if(!last||date>=last.date)S.rates[cur+'|last']={r:x.r,src:x.src,date};
+    saveRates();return v;
+  })();
+  return rateBusy[key];
+}
+function applyRate(e,r){
+  if(e.typed==='EUR'){e.amount=r2(e.eur/r)}else{e.eur=r2(e.amount*r)}
+  e.rate=r;
+}
+async function fixPending(){
+  const pend=S.exps.filter(e=>e.cur!=='EUR'&&(e.rateEst||e.rate==null));
+  if(!pend.length)return;
+  const keys=[...new Set(pend.map(e=>e.cur+'|'+e.date))];
+  let changed=false;
+  for(const k of keys){const [cur,date]=k.split('|');const v=await exactRate(cur,date);if(!v)continue;
+    for(const e of pend.filter(e=>e.cur===cur&&e.date===date)){applyRate(e,v.r);e.rateEst=false;e.rateSrc=v.src;await putExp(e);changed=true}}
+  if(changed)render();
+}
+
+/* ========= Lieux ========= */
+function dist(a,b,c,d){const R=6371e3,t=Math.PI/180;const x=(d-b)*t*Math.cos((a+c)/2*t),y=(c-a)*t;return Math.sqrt(x*x+y*y)*R}
+function locate(){return new Promise(res=>{if(!navigator.geolocation)return res(null);navigator.geolocation.getCurrentPosition(p=>res({lat:p.coords.latitude,lng:p.coords.longitude}),()=>res(null),{enableHighAccuracy:true,timeout:12000,maximumAge:60000})})}
+let geoQ=Promise.resolve(),lastNomi=0;
+function placeName(lat,lng){
+  const near=S.exps.find(e=>e.geo&&e.lat!=null&&dist(lat,lng,e.lat,e.lng)<80);if(near)return Promise.resolve(near.geo);
+  const k=lat.toFixed(4)+','+lng.toFixed(4);if(S.geo[k])return Promise.resolve(S.geo[k]);
+  if(!navigator.onLine)return Promise.resolve(null);
+  geoQ=geoQ.then(async()=>{
+    if(S.geo[k])return S.geo[k];
+    const w=1100-(Date.now()-lastNomi);if(w>0)await new Promise(r=>setTimeout(r,w));lastNomi=Date.now();
+    try{const j=await fetchJSON(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=17&accept-language=fr,en`);
+      const a=j.address||{};const p1=a.road||a.pedestrian||a.neighbourhood||a.suburb||a.amenity||a.village;const p2=a.city||a.town||a.village||a.municipality||a.county||a.state;
+      const name=[...new Set([p1,p2].filter(Boolean))].join(', ')||(j.display_name||'').split(',').slice(0,2).join(',');
+      if(name){S.geo[k]=name;dbPut('geo',{k,name})}return name||null}catch(e){return null}
+  });
+  return geoQ;
+}
+async function attachPlace(e){
+  const pos=await locate();if(!pos)return;
+  const cur=S.exps.find(x=>x.id===e.id);if(!cur)return;
+  cur.lat=pos.lat;cur.lng=pos.lng;await putExp(cur);render();
+  const name=await placeName(pos.lat,pos.lng);
+  const c2=S.exps.find(x=>x.id===e.id);if(c2&&name){c2.geo=name;await putExp(c2);render()}
+}
+async function fillMissingPlaces(){for(const e of S.exps.filter(e=>e.lat!=null&&!e.geo)){const n=await placeName(e.lat,e.lng);if(n){e.geo=n;await putExp(e)}}render()}
+
+/* ========= Statistiques ========= */
+function tripStats(t){
+  const ex=tripExps(t);const td=today();
+  const total=ex.reduce((s,e)=>s+(e.amount||0),0);
+  const eur=ex.reduce((s,e)=>s+(e.eur||0),0);
+  const dates=ex.map(e=>e.date).sort();
+  const start=t.start||dates[0]||td;
+  const endCap=t.end&&t.end<td?t.end:td;
+  const elapsed=Math.max(1,dayDiff(start,endCap)+1);
+  const byDay={};for(const e of ex){(byDay[e.date]=byDay[e.date]||{a:0,e:0,n:0});byDay[e.date].a+=e.amount||0;byDay[e.date].e+=e.eur||0;byDay[e.date].n++}
+  const todayA=(byDay[td]||{a:0}).a;
+  const res={ex,total,eur,start,elapsed,byDay,todayA,days:Object.keys(byDay).length};
+  if(t.daily){const allow=t.daily*elapsed;res.dailyDiff=allow-total;res.todayLeft=t.daily-todayA}
+  if(t.budget){res.left=t.budget-total;if(t.end&&t.end>=td){res.daysLeft=dayDiff(td,t.end)+1;res.perDayLeft=(res.left+todayA)/res.daysLeft}}
+  return res;
+}
+function rateFor(t){const q=quickRate(t.cur,today());return q.r}
+
+/* ========= Rendu ========= */
+const ICON={gear:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
+ pen:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg>',
+ mic:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>'};
+
+function render(){renderTop();const m=$('#main');
+  document.querySelectorAll('nav.tabs [data-tab]').forEach(b=>b.classList.toggle('on',b.dataset.tab===S.tab));
+  const t=activeTrip();
+  if(!t&&S.tab!=='voyages'){m.innerHTML=welcomeHTML();bindWelcome();return}
+  if(S.tab==='journal')renderJournal(t);
+  else if(S.tab==='bilan')renderBilan(t);
+  else if(S.tab==='carte')renderCarte(t);
+  else renderVoyages();
+}
+function renderTop(){const t=activeTrip();const h=$('#top');
+  if(!t){h.innerHTML='<div class="trip-btn"><div class="t1">Dépenses</div></div><button class="icon-btn" id="gear" aria-label="Réglages">'+ICON.gear+'</button>';}
+  else{const c=CUR[t.cur]||{s:t.cur,f:'🌍'};const r=rateFor(t);
+    const rateTxt=t.cur==='EUR'?'En euros':(r?`1 € = ${fmtLoc(1/r,t.cur,{})}`:'Taux du jour en attente');
+    h.innerHTML=`<button class="trip-btn" id="tripSw"><span class="flag">${t.emoji||c.f}</span><span style="min-width:0"><div class="t1">${esc(t.name)} <span class="chev">▾</span></div><div class="t2">${esc(c.n||t.cur)} · ${rateTxt}</div></span></button><button class="icon-btn" id="gear" aria-label="Réglages">${ICON.gear}</button>`;
+    $('#tripSw').onclick=openTripSwitch;}
+  $('#gear').onclick=openSettings;
+}
+function welcomeHTML(){return `<div class="welcome"><img class="logo" src="icon.png" alt=""><h1>Dépenses</h1><p>Note chaque dépense de voyage en un toucher, en l'écrivant ou en la dictant. Tout s'affiche dans la monnaie du pays <b>et</b> en euros, au taux du jour.</p>
+<div class="card" style="text-align:left"><b>Pour commencer, crée ton voyage.</b><div class="small muted" style="margin-top:4px">Par exemple « Thaïlande » en baht. Tu pourras en créer d'autres plus tard.</div><div style="margin-top:14px"><button class="btn primary" id="wNew">Créer mon voyage</button></div></div>
+<p class="small">Tes données restent dans ton téléphone. Pas de compte, pas d'abonnement.</p></div>`}
+function bindWelcome(){$('#wNew').onclick=()=>openTripForm({name:'Thaïlande',cur:'THB'})}
+
+function expRow(e,t){const ty=TYPE[e.type]||TYPE.autre;const p=PAY[e.pay]||PAY.cash;
+  const bits=[e.time,p.e+' '+p.n];if(e.geo)bits.push(e.geo);else if(e.lat!=null)bits.push('Lieu en cours…');
+  const eurTxt=e.cur==='EUR'?'':(e.eur!=null?(e.rateEst?'<span class="est">≈ '+fmtEur(e.eur)+'</span>':fmtEur(e.eur)):'<span class="est">– €</span>');
+  return `<button class="exp" data-id="${e.id}"><span class="ic" style="background:${ty.c}22">${ty.e}</span><span class="mid"><div class="l1">${esc(e.label||ty.n)}</div><div class="l2">${esc(bits.join(' · '))}</div></span><span class="amt"><b>${fmtLoc(e.amount,e.cur)}</b><span>${eurTxt}</span></span></button>`}
+
+function renderJournal(t){const m=$('#main');const st=tripStats(t);const cur=t.cur;const td=today();
+  const todayE=(st.byDay[td]||{e:0}).e;
+  let h='';
+  if(!S.set.hideInstall&&!isStandalone())h+=`<div class="banner"><span>📲</span><span><b>Installe l'appli</b> : touche Partager puis « Sur l'écran d'accueil », et ouvre-la toujours depuis l'icône (Safari et l'icône ont des données séparées).</span><button class="x" id="hideInst">✕</button></div>`;
+  const firstC=Math.min(...S.exps.map(e=>e.createdAt||Date.now()));const needBk=S.exps.length>=5&&(S.set.lastBackup?Date.now()-S.set.lastBackup>14*864e5:Date.now()-firstC>7*864e5);
+  if(needBk)h+=`<div class="banner"><span>💾</span><span><b>Pense à sauvegarder</b> : ${S.set.lastBackup?'dernière sauvegarde il y a plus de 14 jours':'aucune sauvegarde pour l\'instant'}.</span><button class="x" id="goBk" style="color:var(--primary);font-weight:700;font-size:14px">Faire</button></div>`;
+  h+=`<div class="card hero"><div class="row"><div><div class="lab">Aujourd'hui</div><div class="big">${fmtLoc(st.todayA,cur,{round:st.todayA>=1000})}</div></div><div class="eur" style="text-align:right">${cur==='EUR'?'':fmtEur(todayE)}</div></div>`;
+  if(t.daily){const pct=Math.min(100,st.todayA/t.daily*100);const over=st.todayLeft<0;
+    h+=`<div class="bar ${over?'over':''}"><i style="width:${pct}%"></i></div><div class="budgetline ${over?'bad':''}">${over?'Dépassé de '+fmtLoc(-st.todayLeft,cur,{round:true}):'Reste '+fmtLoc(st.todayLeft,cur,{round:true})+' sur '+fmtLoc(t.daily,cur,{round:true})+' aujourd\'hui'}</div>
+    <div class="small ${st.dailyDiff>=0?'good':'bad'}" style="margin-top:4px;font-weight:600">${st.dailyDiff>=0?'Avance':'Retard'} sur le voyage : ${fmtLoc(Math.abs(st.dailyDiff),cur,{round:true})}${cur==='EUR'?'':' ('+fmtEur(Math.abs(st.dailyDiff)*(rateFor(t)||0),{round:true})+')'}</div>`}
+  else if(t.budget){h+=`<div class="budgetline">Reste ${fmtLoc(st.left,cur,{round:true})} sur le budget total</div>`}
+  h+=`</div><div class="actions"><button class="bigbtn write" id="aWrite">${ICON.pen}Écrire</button><button class="bigbtn talk" id="aTalk">${ICON.mic}Dicter</button></div>`;
+  if(!st.ex.length){h+=`<div class="empty"><div class="e">🧾</div><h3>Aucune dépense pour l'instant</h3><div>Deux façons d'ajouter une dépense :</div><ol><li><b>Écrire</b> : tape le montant, choisis le type, c'est enregistré.</li><li><b>Dicter</b> : dis par exemple « 250 pad thaï en espèces ».</li></ol><div style="margin-top:12px">Le montant en euros et le lieu s'ajoutent tout seuls.</div></div>`}
+  else{const days=Object.keys(st.byDay).sort().reverse();
+    for(const d of days){const items=st.ex.filter(e=>e.date===d).sort((a,b)=>(b.time||'').localeCompare(a.time||'')||b.createdAt-a.createdAt);const bd=st.byDay[d];const n=dayDiff(st.start,d)+1;
+      h+=`<div class="dayhead"><div class="d">${dayLabel(d)}${n>=1?`<small>Jour ${n}</small>`:''}</div><div class="t"><b>${fmtLoc(bd.a,cur,{round:bd.a>=1000})}</b>${cur==='EUR'?'':'<span>'+fmtEur(bd.e)+'</span>'}</div></div>`;
+      if(t.daily&&d!==td){const diff=t.daily-bd.a;h+=`<div class="daybudget ${diff<0?'bad':''}">${diff>=0?'Sous le budget de '+fmtLoc(diff,cur,{round:true}):'Au-dessus du budget de '+fmtLoc(-diff,cur,{round:true})}</div>`}
+      h+=`<div class="list">${items.map(e=>expRow(e,t)).join('')}</div>`}}
+  m.innerHTML=h;
+  $('#aWrite').onclick=()=>openEntry({});$('#aTalk').onclick=startDictation;
+  const hi=$('#hideInst');if(hi)hi.onclick=()=>{S.set.hideInstall=true;saveSet();render()};
+  const gb=$('#goBk');if(gb)gb.onclick=openSettings;
+  m.querySelectorAll('.exp').forEach(b=>b.onclick=()=>openEntry({id:b.dataset.id}));
+}
+
+function renderBilan(t){const m=$('#main');const st=tripStats(t);const cur=t.cur;const R=rateFor(t)||0;const E=v=>cur==='EUR'?'':fmtEur(v*R,{round:true});
+  if(!st.ex.length){m.innerHTML=`<div class="empty"><div class="e">📊</div><h3>Pas encore de bilan</h3><div>Ajoute ta première dépense : les totaux par type, le budget et le graphique apparaîtront ici.</div><div style="margin-top:16px"><button class="btn primary" id="bAdd">Ajouter une dépense</button></div></div>`;$('#bAdd').onclick=()=>openEntry({});return}
+  const avg=st.total/st.elapsed;
+  let h=`<div class="card hero"><div class="lab">Total du voyage</div><div class="big">${fmtLoc(st.total,cur,{round:true})}</div>${cur==='EUR'?'':`<div class="eur">${fmtEur(st.eur)}</div>`}
+  <div class="stat3"><div><b>${st.elapsed}</b><span>jour${st.elapsed>1?'s':''}</span></div><div><b>${fmtLoc(avg,cur,{round:true})}</b><span>par jour</span></div><div><b>${st.ex.length}</b><span>dépense${st.ex.length>1?'s':''}</span></div></div></div>`;
+  if(t.daily||t.budget){h+=`<h2 class="sec">Budget</h2><div class="card">`;
+    if(t.daily){const pct=Math.min(100,st.todayA/t.daily*100);
+      h+=`<div style="font-weight:700">Par jour : ${fmtLoc(t.daily,cur,{round:true})}</div><div class="bar ${st.todayLeft<0?'over':''}"><i style="width:${pct}%"></i></div><div class="small" style="margin-top:6px">Aujourd'hui : ${fmtLoc(st.todayA,cur,{round:true})} dépensés, ${st.todayLeft>=0?'reste '+fmtLoc(st.todayLeft,cur,{round:true}):'<span class="bad">dépassé de '+fmtLoc(-st.todayLeft,cur,{round:true})+'</span>'}</div>
+      <div class="small ${st.dailyDiff>=0?'good':'bad'}" style="margin-top:4px;font-weight:600">${st.dailyDiff>=0?'Avance':'Retard'} cumulé${st.dailyDiff>=0?'e':''} sur ${st.elapsed} jour${st.elapsed>1?'s':''} : ${fmtLoc(Math.abs(st.dailyDiff),cur,{round:true})} ${E(Math.abs(st.dailyDiff))?'('+E(Math.abs(st.dailyDiff))+')':''}</div>`}
+    if(t.budget){const pct=Math.min(100,st.total/t.budget*100);
+      h+=`<div style="font-weight:700;${t.daily?'margin-top:16px':''}">Total : ${fmtLoc(t.budget,cur,{round:true})}</div><div class="bar ${st.left<0?'over':''}"><i style="width:${pct}%"></i></div><div class="small" style="margin-top:6px">${st.left>=0?'Reste '+fmtLoc(st.left,cur,{round:true})+(E(st.left)?' ('+E(st.left)+')':''):'<span class="bad">Dépassé de '+fmtLoc(-st.left,cur,{round:true})+'</span>'} · ${Math.round(pct)}&nbsp;% utilisé</div>
+      ${st.perDayLeft!=null?`<div class="small" style="margin-top:4px;font-weight:600">Soit ${fmtLoc(Math.max(0,st.perDayLeft),cur,{round:true})} par jour pour les ${st.daysLeft} jour${st.daysLeft>1?'s':''} restant${st.daysLeft>1?'s':''} (aujourd'hui compris)</div>`:(t.end?'':'<div class="small muted" style="margin-top:4px">Ajoute une date de fin au voyage pour savoir combien dépenser par jour.</div>')}`}
+    h+=`</div>`}
+  // par type
+  const byT={};for(const e of st.ex){(byT[e.type]=byT[e.type]||{a:0,e:0,n:0});byT[e.type].a+=e.amount;byT[e.type].e+=e.eur||0;byT[e.type].n++}
+  const tl=Object.entries(byT).sort((a,b)=>b[1].a-a[1].a);const max=tl[0][1].a||1;
+  h+=`<h2 class="sec">Par type</h2><div class="card">`+tl.map(([k,v])=>{const ty=TYPE[k]||TYPE.autre;return `<div class="trow"><span class="em">${ty.e}</span><div class="mid"><div class="top">${ty.n}<span>${fmtLoc(v.a,cur,{round:true})}</span></div><div class="bar"><i style="width:${v.a/max*100}%;background:${ty.c}"></i></div><div class="sub"><span>${Math.round(v.a/st.total*100)}&nbsp;% · ${v.n} dépense${v.n>1?'s':''}</span><span>${cur==='EUR'?'':fmtEur(v.e,{round:true})}</span></div></div></div>`}).join('')+`</div>`;
+  // paiement
+  const cash=st.ex.filter(e=>e.pay!=='card').reduce((s,e)=>s+e.amount,0),card=st.total-cash;
+  const cashE=st.ex.filter(e=>e.pay!=='card').reduce((s,e)=>s+(e.eur||0),0),cardE=st.eur-cashE;
+  h+=`<h2 class="sec">Espèces ou carte</h2><div class="card"><div class="split"><i style="width:${cash/st.total*100}%;background:${PAY.cash.c}"></i><i style="width:${card/st.total*100}%;background:${PAY.card.c}"></i></div><div class="legend"><div><span class="dot" style="background:${PAY.cash.c}"></span>💵 Espèces<br><b>${fmtLoc(cash,cur,{round:true})}</b> <span class="muted small">${cur==='EUR'?'':fmtEur(cashE,{round:true})}</span></div><div style="text-align:right"><span class="dot" style="background:${PAY.card.c}"></span>💳 Carte<br><b>${fmtLoc(card,cur,{round:true})}</b> <span class="muted small">${cur==='EUR'?'':fmtEur(cardE,{round:true})}</span></div></div></div>`;
+  // par jour
+  const allDays=[];const end=t.end&&t.end<today()?t.end:today();let d0=st.start;const lastExp=Object.keys(st.byDay).sort().pop();const dEnd=lastExp>end?lastExp:end;
+  for(let d=d0,i=0;d<=dEnd&&i<400;d=addDays(d,1),i++)allDays.push(d);
+  const vals=allDays.map(d=>(st.byDay[d]||{a:0}).a);const vmax=Math.max(t.daily||0,...vals,1);
+  const bw=30,H=150,W=Math.max(allDays.length*bw,300);
+  let svg=`<svg width="${W}" height="${H+34}" viewBox="0 0 ${W} ${H+34}" style="display:block">`;
+  allDays.forEach((d,i)=>{const v=vals[i];const bh=v/vmax*H;const over=t.daily&&v>t.daily;const x=i*bw+5;
+    svg+=`<rect x="${x}" y="${H-bh+4}" width="${bw-10}" height="${Math.max(bh,v?2:0)}" rx="5" fill="${over?'var(--danger)':'var(--primary)'}" opacity="${d===today()?1:.8}"/>`;
+    svg+=`<text x="${x+(bw-10)/2}" y="${H+20}" text-anchor="middle" font-size="10" fill="var(--muted)" font-family="Figtree">${new Date(d+'T12:00').getDate()}</text>`;
+    if(new Date(d+'T12:00').getDate()===1||i===0)svg+=`<text x="${x}" y="${H+32}" font-size="9" fill="var(--muted)" font-family="Figtree">${new Date(d+'T12:00').toLocaleDateString('fr-FR',{month:'short'})}</text>`});
+  if(t.daily){const y=H-t.daily/vmax*H+4;svg+=`<line x1="0" x2="${W}" y1="${y}" y2="${y}" stroke="var(--accent)" stroke-width="2" stroke-dasharray="5 4"/>`}
+  svg+='</svg>';
+  h+=`<h2 class="sec">Jour par jour</h2><div class="card"><div class="chartwrap" id="cw">${svg}</div>${t.daily?`<div class="small muted" style="margin-top:8px"><span class="dot" style="background:var(--accent);border-radius:2px;height:3px;width:14px"></span>Budget du jour · <span class="dot" style="background:var(--danger)"></span>jour dépassé</div>`:''}</div>`;
+  h+=`<p class="small muted" style="text-align:center;margin-top:18px">Les montants en euros de chaque dépense utilisent le taux du jour où elle a été faite.</p>`;
+  m.innerHTML=h;const cw=$('#cw');cw.scrollLeft=cw.scrollWidth;
+}
+
+let map,mapLayer;
+function renderCarte(t){const m=$('#main');const ex=tripExps(t).filter(e=>e.lat!=null);const cur=t.cur;
+  const groups=[];for(const e of ex){let g=groups.find(g=>dist(g.lat,g.lng,e.lat,e.lng)<120);if(!g){g={lat:e.lat,lng:e.lng,items:[],a:0,e:0,name:null};groups.push(g)}g.items.push(e);g.a+=e.amount;g.e+=e.eur||0;if(!g.name&&e.geo)g.name=e.geo}
+  groups.sort((a,b)=>b.a-a.a);
+  let h=`<div id="map"></div>`;
+  if(!ex.length)h=`<div class="empty"><div class="e">🗺️</div><h3>Aucun lieu pour l'instant</h3><div>Quand tu ajoutes une dépense aujourd'hui, l'appli note l'endroit où tu es (si tu l'autorises). Les lieux apparaîtront ici sur une carte, avec le total dépensé à chaque endroit.</div><div class="small" style="margin-top:12px">Lieu automatique : <b>${S.set.geoOn?'activé':'désactivé'}</b> (réglages)</div></div>`;
+  else h+=`<h2 class="sec">Lieux · ${groups.length}</h2><div class="list">`+groups.map((g,i)=>`<button class="place" data-i="${i}" style="width:100%;text-align:left"><span style="font-size:22px">📍</span><span class="mid"><div class="n">${esc(g.name||'Lieu sans nom')}</div><div class="s">${g.items.length} dépense${g.items.length>1?'s':''} · ${[...new Set(g.items.map(e=>shortDate(e.date)))].slice(0,3).join(', ')}</div></span><span class="amt"><b>${fmtLoc(g.a,cur,{round:true})}</b><span>${cur==='EUR'?'':fmtEur(g.e,{round:true})}</span></span></button>`).join('')+`</div>`;
+  m.innerHTML=h;
+  if(!ex.length)return;
+  if(typeof L==='undefined'){$('#map').innerHTML='<div class="empty"><div class="e">📶</div><div>La carte a besoin d\'internet. La liste des lieux reste disponible ci-dessous.</div></div>';return}
+  map=L.map('map',{zoomControl:false,attributionControl:true});
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
+  const maxA=groups[0].a||1;const mk=[];
+  groups.forEach((g,i)=>{const r=10+Math.sqrt(g.a/maxA)*22;
+    const c=L.circleMarker([g.lat,g.lng],{radius:r,color:'#0F7B68',weight:2,fillColor:'#0F7B68',fillOpacity:.35}).addTo(map);
+    c.bindPopup(`<b>${esc(g.name||'Lieu')}</b><br>${fmtLoc(g.a,cur,{round:true})}${cur==='EUR'?'':' · '+fmtEur(g.e,{round:true})}<br><span style="color:#6B7570">${g.items.slice(0,5).map(e=>esc((TYPE[e.type]||TYPE.autre).e+' '+(e.label||'')+' '+fmtLoc(e.amount,cur))).join('<br>')}${g.items.length>5?'<br>…':''}</span>`);mk.push(c)});
+  const b=L.latLngBounds(groups.map(g=>[g.lat,g.lng]));map.fitBounds(b.pad(.3),{maxZoom:15});
+  m.querySelectorAll('.place').forEach(p=>p.onclick=()=>{const g=groups[+p.dataset.i];map.setView([g.lat,g.lng],16);mk[+p.dataset.i].openPopup();window.scrollTo({top:0,behavior:'smooth'})});
+}
+
+function renderVoyages(){const m=$('#main');
+  let h=`<h2 class="sec" style="margin-top:6px">Mes voyages</h2>`;
+  if(!S.trips.length)h+=`<div class="empty"><div class="e">🧳</div><h3>Aucun voyage</h3><div>Crée un voyage pour chaque pays : sa monnaie, ses dates et son budget.</div></div>`;
+  else{h+=`<div class="list">`+[...S.trips].sort((a,b)=>(b.start||'').localeCompare(a.start||'')).map(t=>{const st=tripStats(t);const c=CUR[t.cur]||{f:'🌍',s:t.cur};
+    return `<div class="trip"><button class="mid" data-act="${t.id}" style="text-align:left;display:flex;gap:12px;align-items:center"><span class="flag">${t.emoji||c.f}</span><span style="min-width:0"><div class="n">${esc(t.name)} ${t.id===S.set.active?'<span class="on">Actif</span>':''}</div><div class="s">${c.s} · ${fmtLoc(st.total,t.cur,{round:true})}${t.cur==='EUR'?'':' · '+fmtEur(st.eur,{round:true})} · ${st.ex.length} dépense${st.ex.length>1?'s':''}</div><div class="s">${t.start?'Du '+shortDate(t.start):''}${t.end?' au '+shortDate(t.end):''}</div></span></button><button class="edit" data-ed="${t.id}">Modifier</button></div>`}).join('')+`</div>`}
+  h+=`<div style="margin-top:16px"><button class="btn primary" id="vNew">Nouveau voyage</button></div><p class="help" style="margin-top:12px">Touche un voyage pour le rendre actif : les nouvelles dépenses y seront ajoutées.</p>`;
+  m.innerHTML=h;
+  $('#vNew').onclick=()=>openTripForm({});
+  m.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>{S.set.active=b.dataset.act;saveSet();S.tab='journal';render();prefetchRate()});
+  m.querySelectorAll('[data-ed]').forEach(b=>b.onclick=()=>openTripForm(S.trips.find(t=>t.id===b.dataset.ed)));
+}
+
+/* ========= Panneaux ========= */
+let sheetEl,scrimEl,sheetClose=null;
+function openSheet(html,title){closeSheet(true);$('#toast').classList.remove('show');
+  scrimEl=document.createElement('div');scrimEl.className='scrim';sheetEl=document.createElement('div');sheetEl.className='sheet';
+  sheetEl.innerHTML=`<div class="grab"></div><h3><span>${title}</span><button class="x" data-close>✕</button></h3>`+html;
+  document.body.append(scrimEl,sheetEl);
+  scrimEl.onclick=()=>closeSheet();sheetEl.querySelector('[data-close]').onclick=()=>closeSheet();
+  requestAnimationFrame(()=>{scrimEl.classList.add('show');sheetEl.classList.add('show')});
+  return sheetEl;
+}
+function closeSheet(now){if(!sheetEl)return;const s=sheetEl,c=scrimEl;sheetEl=scrimEl=null;if(document.activeElement)document.activeElement.blur();
+  if(now){s.remove();c.remove();return}s.classList.remove('show');c.classList.remove('show');setTimeout(()=>{s.remove();c.remove()},260)}
+
+let toastT;
+function toast(msg,btn,fn,ms=5000){const t=$('#toast');t.querySelector('.tx').textContent=msg;const b=t.querySelector('button');
+  if(btn){b.style.display='';b.textContent=btn;b.onclick=()=>{t.classList.remove('show');clearTimeout(toastT);fn()}}else b.style.display='none';
+  t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),ms)}
+
+/* ========= Saisie d'une dépense ========= */
+function openEntry(pre){
+  const t=activeTrip();if(!t){openTripForm({name:'Thaïlande',cur:'THB'});return}
+  const ed=pre.id?S.exps.find(e=>e.id===pre.id):null;
+  const st={inCur:ed?(ed.typed==='EUR'?'EUR':ed.cur):(pre.inCur||t.cur),type:ed?ed.type:(pre.type||null),pay:ed?ed.pay:(pre.pay||S.set.lastPay||'cash'),date:ed?ed.date:today(),time:ed?ed.time:nowTime()};
+  let amtVal=ed?(ed.typed==='EUR'?ed.eur:ed.amount):(pre.amount??'');
+  const amtStr=amtVal===''||amtVal==null?'':String(amtVal).replace('.',',');
+  const lbl=ed?ed.label:(pre.label||'');
+  const canEur=t.cur!=='EUR';
+  const html=`${pre.heard?`<div class="heard">🎤 « ${esc(pre.heard)} »</div>`:''}
+  <div class="amtrow"><input id="amt" inputmode="decimal" placeholder="0" autocomplete="off" value="${esc(amtStr)}" aria-label="Montant"><button class="curT" id="curT" ${canEur?'':'disabled'}></button></div>
+  <div class="conv" id="conv"></div><div class="err" id="err"></div>
+  <div class="chips" id="chips">${TYPES.map(ty=>`<button class="chip" data-k="${ty.k}"><span class="em">${ty.e}</span>${ty.n}</button>`).join('')}</div>
+  <div class="field"><input class="inp" id="lbl" placeholder="Libellé (facultatif) : pad thaï, taxi…" value="${esc(lbl)}" autocomplete="off" enterkeyhint="done"></div>
+  <div class="seg" id="pay"><button data-v="cash">💵 Espèces</button><button data-v="card">💳 Carte</button></div>
+  <button class="whenrow" id="whenBtn"><span>🗓️ <span id="whenTxt"></span></span><span class="muted">Changer</span></button>
+  <div id="whenBox" style="display:none" class="row2"><div class="field"><label>Date</label><input class="inp" type="date" id="dDate" value="${st.date}"></div><div class="field"><label>Heure</label><input class="inp" type="time" id="dTime" value="${st.time}"></div></div>
+  <div class="locline" id="loc"></div>
+  <div class="stickysave"><button class="btn primary" id="save">${ed?'Enregistrer les changements':'Enregistrer'}</button></div>
+  ${ed?'<button class="btn danger" id="del">Supprimer cette dépense</button>':''}`;
+  const sh=openSheet(html,ed?'Modifier la dépense':'Nouvelle dépense');
+  const amt=sh.querySelector('#amt');
+  if(!ed&&!pre.amount)amt.focus();
+  const upd=()=>{
+    const c=CUR[st.inCur];sh.querySelector('#curT').innerHTML=c.s+(canEur?'<small>changer</small>':'');
+    const v=parseNum(amt.value);const q=ed&&ed.rate&&!ed.rateEst&&st.date===ed.date?{r:ed.rate,est:false}:quickRate(t.cur,st.date);
+    let txt='';
+    if(t.cur==='EUR')txt='';
+    else if(!q.r)txt='Taux inconnu pour l\'instant : les euros seront calculés dès qu\'il y aura du réseau.';
+    else if(isNaN(v))txt=st.inCur==='EUR'?`Saisie en euros · 1 € = ${fmtLoc(1/q.r,t.cur)}`:`1 € = ${fmtLoc(1/q.r,t.cur)}${q.est?' (dernier taux connu)':''}`;
+    else txt=st.inCur==='EUR'?`= ${fmtLoc(v/q.r,t.cur)}`:`≈ ${fmtEur(v*q.r)}${q.est?' (dernier taux connu)':''}`;
+    sh.querySelector('#conv').textContent=txt;
+    sh.querySelectorAll('.chip').forEach(b=>b.classList.toggle('on',b.dataset.k===st.type));
+    sh.querySelectorAll('#pay button').forEach(b=>b.classList.toggle('on',b.dataset.v===st.pay));
+    sh.querySelector('#whenTxt').textContent=(st.date===today()?"Aujourd'hui":dayLabel(st.date))+' · '+st.time;
+    let loc='';if(ed){loc=ed.geo?'📍 '+ed.geo:(ed.lat!=null?'📍 Lieu enregistré':'📍 Sans lieu')}else if(st.date!==today())loc='📍 Pas de lieu pour une date passée';else loc=S.set.geoOn?'📍 Le lieu sera ajouté automatiquement':'📍 Lieu automatique désactivé';
+    sh.querySelector('#loc').textContent=loc;
+  };
+  upd();
+  amt.addEventListener('input',upd);
+  sh.querySelector('#curT').onclick=()=>{if(!canEur)return;st.inCur=st.inCur==='EUR'?t.cur:'EUR';upd();amt.focus()};
+  sh.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{st.type=st.type===b.dataset.k?null:b.dataset.k;upd()});
+  sh.querySelectorAll('#pay button').forEach(b=>b.onclick=()=>{st.pay=b.dataset.v;upd()});
+  sh.querySelector('#whenBtn').onclick=()=>{const w=sh.querySelector('#whenBox');w.style.display=w.style.display==='none'?'grid':'none'};
+  sh.querySelector('#dDate').onchange=e=>{st.date=e.target.value||today();upd()};
+  sh.querySelector('#dTime').onchange=e=>{st.time=e.target.value||nowTime();upd()};
+  sh.querySelector('#lbl').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();e.target.blur()}});
+  amt.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();sh.querySelector('#lbl').focus()}});
+  sh.querySelector('#save').onclick=async()=>{
+    const v=parseNum(amt.value);const err=sh.querySelector('#err');
+    if(isNaN(v)||v<=0){err.textContent='Indique un montant.';const r=sh.querySelector('.amtrow');r.classList.remove('shake');void r.offsetWidth;r.classList.add('shake');amt.focus();return}
+    const label=sh.querySelector('#lbl').value.trim();
+    const type=st.type||guessType(label)||'autre';
+    const q=(ed&&ed.rate&&!ed.rateEst&&st.date===ed.date)?{r:ed.rate,est:false,src:ed.rateSrc}:quickRate(t.cur,st.date);
+    let amount,eur;
+    if(st.inCur==='EUR'&&t.cur!=='EUR'){if(!q.r){err.textContent='Pas de taux connu hors connexion : saisis le montant en '+CUR[t.cur].n.toLowerCase()+'.';return}eur=r2(v);amount=r2(v/q.r)}
+    else{amount=r2(v);eur=q.r?r2(v*q.r):null}
+    const e=ed?{...ed}:{id:uid('e'),trip:t.id,createdAt:Date.now()};
+    Object.assign(e,{cur:t.cur,amount,eur,rate:q.r,rateEst:t.cur==='EUR'?false:!!q.est,rateSrc:q.src||null,typed:st.inCur==='EUR'&&t.cur!=='EUR'?'EUR':null,label,type,pay:st.pay,date:st.date,time:st.time});
+    if(t.cur==='EUR'){e.eur=amount;e.rate=1}
+    await putExp(e);S.set.lastPay=st.pay;saveSet();closeSheet();
+    if(!ed){if(S.tab!=='journal')S.tab='journal';}
+    render();
+    if(!ed&&S.set.geoOn&&st.date===today())attachPlace(e);
+    if(e.rateEst||e.rate==null)exactRate(t.cur,e.date).then(x=>{if(!x)return;const c=S.exps.find(y=>y.id===e.id);if(!c)return;applyRate(c,x.r);c.rateEst=false;c.rateSrc=x.src;putExp(c).then(render)});
+    if(ed)toast('Dépense modifiée');
+    else toast(`Ajouté : ${fmtLoc(e.amount,t.cur)}${t.cur==='EUR'||e.eur==null?'':' · '+fmtEur(e.eur)}`,'Annuler',async()=>{S.exps=S.exps.filter(x=>x.id!==e.id);await dbDel('expenses',e.id);render()});
+  };
+  if(ed)sh.querySelector('#del').onclick=async()=>{const copy={...ed};S.exps=S.exps.filter(x=>x.id!==ed.id);await dbDel('expenses',ed.id);closeSheet();render();
+    toast('Dépense supprimée','Annuler',async()=>{await putExp(copy);render()})};
+}
+function guessType(text){const n=' '+norm(text).replace(/[^a-z0-9\- ]/g,' ')+' ';
+  for(const ty of TYPES)for(const w of ty.w){const ww=norm(w);if(n.includes(' '+ww+' ')||(ww.length>4&&n.includes(ww)))return ty.k}return null}
+
+/* ========= Dictée ========= */
+const UNITS={zero:0,un:1,une:1,deux:2,trois:3,quatre:4,cinq:5,six:6,sept:7,huit:8,neuf:9,dix:10,onze:11,douze:12,treize:13,quatorze:14,quinze:15,seize:16,vingt:20,trente:30,quarante:40,cinquante:50,soixante:60};
+function wordsToNum(tokens){let total=0,cur=0,used=0,prev=null;
+  for(const w of tokens){if(w==='et'&&used){continue}
+    if(w in UNITS){const v=UNITS[w];if(w==='vingt'&&prev==='quatre'){cur+=76}else cur+=v;used++;prev=w}
+    else if(w==='cent'||w==='cents'){cur=(cur||1)*100;used++;prev=w}
+    else if(w==='mille'){total+=(cur||1)*1000;cur=0;used++;prev=w}
+    else break}
+  return used?{v:total+cur,n:used}:null}
+function parseSpeech(raw,t){
+  let s=' '+norm(raw).replace(/[’']/g,' ')+' ';
+  const out={heard:raw};
+  // devise : euros ?
+  if(t.cur!=='EUR'&&/\beuros?\b|€/.test(s)){out.inCur='EUR'}
+  // paiement
+  if(/\b(carte|cb|visa|mastercard|par carte|en carte)\b/.test(s))out.pay='card';
+  else if(/\b(especes|espece|cash|liquide|liquides|en liquide)\b/.test(s))out.pay='cash';
+  // montant en chiffres
+  let m=s.match(/(\d{1,3}(?:[   .]\d{3})+|\d+)(?:[,.](\d{1,2}))?(?!\d)/);
+  let numTxt=null;
+  if(m){const ent=m[1].replace(/[   .]/g,'');out.amount=parseFloat(ent+(m[2]?'.'+m[2]:''));numTxt=m[0]}
+  else{const toks=s.trim().split(/[\s\-]+/);for(let i=0;i<toks.length;i++){const r=wordsToNum(toks.slice(i));if(r&&r.v>0){out.amount=r.v;numTxt=toks.slice(i,i+r.n).join(' ');s=' '+toks.slice(0,i).concat(toks.slice(i+r.n)).join(' ')+' ';numTxt=null;break}}}
+  if(numTxt)s=s.replace(numTxt,' ');
+  // libellé : on retire les mots de devise, paiement et liaison
+  const curW=[...(CUR[t.cur]?.w||[]),'euro','euros','€',CUR[t.cur]?.s||''].filter(Boolean).map(norm);
+  const stop=['en','par','pour','de','du','des','d','le','la','les','un','une','a','au','aux','carte','cb','especes','espece','cash','liquide','liquides','paye','payee','j','ai','depense','depenses','et','visa'];
+  const words=s.trim().split(/\s+/).filter(w=>w&&!curW.includes(w)&&!stop.includes(w));
+  // reconstruire avec les accents d'origine si possible
+  const origWords=raw.replace(/[’']/g,' ').split(/\s+/);
+  const lab=words.map(w=>{const o=origWords.find(x=>norm(x)===w);return o||w}).join(' ').trim();
+  out.label=cap(lab);
+  out.type=guessType(lab)||null;
+  return out;
+}
+let rec=null;
+function startDictation(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;const t=activeTrip();
+  if(!SR){openEntry({});toast('Dictée indisponible ici : utilise le micro du clavier 🎙️',null,null,6000);return}
+  const ov=document.createElement('div');ov.className='listen';
+  ov.innerHTML=`<div class="mic">${ICON.mic}</div><div class="said" id="said">Je t'écoute…</div><div class="hint">Dis le montant et ce que c'est.<br>Ex : « 250 pad thaï en espèces »<br>ou « 12 euros massage par carte »</div><div class="lb"><button id="lCancel">Annuler</button><button class="ok" id="lOk">Terminé</button></div>`;
+  document.body.append(ov);
+  let finalTxt='',interim='',done=false,cancelled=false;
+  try{rec=new SR()}catch(e){ov.remove();openEntry({});toast('Dictée indisponible : utilise le micro du clavier 🎙️');return}
+  rec.lang='fr-FR';rec.interimResults=true;rec.continuous=false;rec.maxAlternatives=1;
+  rec.onresult=ev=>{interim='';for(let i=ev.resultIndex;i<ev.results.length;i++){const r=ev.results[i];if(r.isFinal)finalTxt+=r[0].transcript+' ';else interim+=r[0].transcript}
+    ov.querySelector('#said').textContent=(finalTxt+interim).trim()||'Je t\'écoute…'};
+  const finish=()=>{if(done)return;done=true;ov.remove();if(cancelled)return;const txt=(finalTxt+interim).trim();
+    if(!txt){toast('Je n\'ai rien entendu. Réessaie ou touche « Écrire ».','Écrire',()=>openEntry({}));return}
+    openEntry(parseSpeech(txt,t))};
+  rec.onerror=ev=>{if(done)return;
+    const msg={'not-allowed':'Micro refusé. Autorise-le dans Réglages > Safari > Microphone (ou réglages du site), ou utilise « Écrire ».','service-not-allowed':'La dictée n\'est pas autorisée dans ce mode. Utilise le micro du clavier.','no-speech':'Je n\'ai rien entendu. Réessaie.','network':'La dictée a besoin d\'internet. Utilise « Écrire » avec le micro du clavier.','audio-capture':'Aucun micro disponible.'}[ev.error];
+    if(ev.error==='aborted')return;
+    done=true;ov.remove();
+    if(finalTxt.trim()){openEntry(parseSpeech(finalTxt.trim(),t));return}
+    toast(msg||('Erreur de dictée : '+ev.error),'Écrire',()=>openEntry({}),7000)};
+  rec.onend=finish;
+  ov.querySelector('#lOk').onclick=()=>{try{rec.stop()}catch(e){}setTimeout(finish,700)};
+  ov.querySelector('#lCancel').onclick=()=>{cancelled=true;try{rec.abort()}catch(e){}done=true;ov.remove()};
+  try{rec.start()}catch(e){ov.remove();openEntry({});toast('Dictée indisponible : utilise le micro du clavier 🎙️')}
+}
+
+/* ========= Voyages ========= */
+function openTripForm(tr){
+  const ed=tr&&tr.id?tr:null;const v=tr||{};
+  const opts=Object.entries(CUR).map(([k,c])=>`<option value="${k}" ${k===(v.cur||'THB')?'selected':''}>${c.f} ${c.n} (${c.s})</option>`).join('');
+  const html=`<div class="field"><label>Nom du voyage</label><input class="inp" id="tName" value="${esc(v.name||'')}" placeholder="Thaïlande"></div>
+  <div class="field"><label>Monnaie du pays</label><select class="inp" id="tCur" ${ed&&tripExps(ed).length?'disabled':''}>${opts}</select></div>
+  ${ed&&tripExps(ed).length?'<p class="help">La monnaie ne peut plus changer car le voyage contient des dépenses.</p>':''}
+  <div class="row2"><div class="field"><label>Début</label><input class="inp" type="date" id="tStart" value="${v.start||today()}"></div><div class="field"><label>Fin (facultatif)</label><input class="inp" type="date" id="tEnd" value="${v.end||''}"></div></div>
+  <div class="row2"><div class="field"><label>Budget par jour <span id="bc1"></span></label><input class="inp" id="tDaily" inputmode="decimal" placeholder="Ex : 1500" value="${v.daily||''}"></div><div class="field"><label>Budget total <span id="bc2"></span></label><input class="inp" id="tBudget" inputmode="decimal" placeholder="Ex : 40000" value="${v.budget||''}"></div></div>
+  <p class="help" id="bHelp">Les deux budgets sont facultatifs, dans la monnaie du pays.</p><div class="err" id="tErr"></div>
+  <button class="btn primary" id="tSave">${ed?'Enregistrer':'Créer le voyage'}</button>
+  ${ed?'<button class="btn danger" id="tDel">Supprimer ce voyage</button>':''}`;
+  const sh=openSheet(html,ed?'Modifier le voyage':'Nouveau voyage');
+  const updC=()=>{const c=CUR[sh.querySelector('#tCur').value];sh.querySelector('#bc1').textContent='('+c.s+')';sh.querySelector('#bc2').textContent='('+c.s+')';
+    const r=quickRate(sh.querySelector('#tCur').value,today()).r;const d=parseNum(sh.querySelector('#tDaily').value),b=parseNum(sh.querySelector('#tBudget').value);
+    const parts=[];if(r&&!isNaN(d)&&c!==CUR.EUR)parts.push('par jour ≈ '+fmtEur(d*r,{round:true}));if(r&&!isNaN(b)&&c!==CUR.EUR)parts.push('total ≈ '+fmtEur(b*r,{round:true}));
+    sh.querySelector('#bHelp').textContent=parts.length?'Soit '+parts.join(', ')+'.':'Les deux budgets sont facultatifs, dans la monnaie du pays.'};
+  updC();sh.querySelector('#tCur').onchange=()=>{updC();exactRate(sh.querySelector('#tCur').value,today()).then(updC)};
+  sh.querySelector('#tDaily').oninput=updC;sh.querySelector('#tBudget').oninput=updC;
+  exactRate(sh.querySelector('#tCur').value,today()).then(updC);
+  sh.querySelector('#tSave').onclick=async()=>{
+    const name=sh.querySelector('#tName').value.trim();if(!name){sh.querySelector('#tErr').textContent='Donne un nom au voyage.';return}
+    const start=sh.querySelector('#tStart').value||today(),end=sh.querySelector('#tEnd').value||null;
+    if(end&&end<start){sh.querySelector('#tErr').textContent='La fin est avant le début.';return}
+    const d=parseNum(sh.querySelector('#tDaily').value),b=parseNum(sh.querySelector('#tBudget').value);
+    const t=ed?{...ed}:{id:uid('t'),createdAt:Date.now()};
+    Object.assign(t,{name,cur:ed&&tripExps(ed).length?ed.cur:sh.querySelector('#tCur').value,start,end,daily:isNaN(d)||d<=0?null:d,budget:isNaN(b)||b<=0?null:b});
+    await putTrip(t);if(!ed||!S.set.active){S.set.active=t.id;saveSet()}
+    closeSheet();if(!ed)S.tab='journal';render();prefetchRate();toast(ed?'Voyage modifié':'Voyage créé. Bon voyage !')};
+  if(ed)sh.querySelector('#tDel').onclick=async()=>{const n=tripExps(ed).length;
+    if(!confirm(`Supprimer « ${ed.name} »${n?' et ses '+n+' dépense'+(n>1?'s':''):''} ? C'est définitif.`))return;
+    for(const e of tripExps(ed))await dbDel('expenses',e.id);S.exps=S.exps.filter(e=>e.trip!==ed.id);
+    await dbDel('trips',ed.id);S.trips=S.trips.filter(t=>t.id!==ed.id);
+    if(S.set.active===ed.id){S.set.active=S.trips[0]?.id||null;saveSet()}closeSheet();render();toast('Voyage supprimé')};
+}
+function openTripSwitch(){
+  const html=`<div class="list">${S.trips.map(t=>{const c=CUR[t.cur]||{f:'🌍',s:t.cur};return `<button class="trip" data-id="${t.id}"><span class="flag">${c.f}</span><span class="mid"><div class="n">${esc(t.name)}</div><div class="s">${c.n}</div></span>${t.id===S.set.active?'<span class="on">Actif</span>':''}</button>`}).join('')}</div>
+  <div style="margin-top:14px"><button class="btn" id="swNew">+ Nouveau voyage</button></div>`;
+  const sh=openSheet(html,'Changer de voyage');
+  sh.querySelectorAll('[data-id]').forEach(b=>b.onclick=()=>{S.set.active=b.dataset.id;saveSet();closeSheet();render();prefetchRate()});
+  sh.querySelector('#swNew').onclick=()=>openTripForm({});
+}
+
+/* ========= Réglages et sauvegarde ========= */
+let preparedFile=null;
+function openSettings(){const t=activeTrip();
+  const r=t&&t.cur!=='EUR'?quickRate(t.cur,today()):null;
+  const html=`<div class="card"><div class="switch"><span><b>Lieu automatique</b><div class="small muted">Note l'endroit de chaque dépense du jour.</div></span><input type="checkbox" id="sGeo" ${S.set.geoOn?'checked':''}></div></div>
+  ${t&&t.cur!=='EUR'?`<div class="card"><b>Taux de change</b><div class="small muted" style="margin-top:4px">${r&&r.r?`1 € = ${fmtLoc(1/r.r,t.cur)} · 1 ${CUR[t.cur].s} = ${r.r.toLocaleString('fr-FR',{maximumSignificantDigits:4})} €${r.est?' (dernier taux connu)':''}${r.src?' · source : '+esc(r.src):''}`:'Pas encore de taux : il sera chargé dès qu\'il y aura du réseau.'}</div><div class="small muted" style="margin-top:6px">Chaque dépense garde le taux du jour où elle a été faite. Hors connexion, le dernier taux connu est utilisé, puis corrigé au retour du réseau.</div></div>`:''}
+  <h2 class="sec">Sauvegarde</h2><div class="card"><div class="small muted" style="margin-bottom:12px">${S.set.lastBackup?'Dernière sauvegarde : '+new Date(S.set.lastBackup).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'}):'Aucune sauvegarde pour l\'instant.'} Enregistre le fichier dans Fichiers ou iCloud Drive : il sert aussi à changer de téléphone.</div>
+  <button class="btn primary" id="bkPrep">Préparer la sauvegarde</button><button class="btn" id="bkRest">Restaurer une sauvegarde</button><input type="file" id="bkFile" accept=".json,application/json" style="display:none"></div>
+  <h2 class="sec">À savoir</h2><div class="card small" style="line-height:1.55">• Ouvre toujours l'appli depuis son icône : Safari et l'icône ont des données séparées.<br>• Supprimer l'icône efface les données : sauvegarde d'abord.<br>• Taux : Banque centrale européenne (frankfurter), avec d'autres sources en secours. Noms de lieux : OpenStreetMap.</div>
+  <button class="btn danger" id="wipe">Tout effacer</button>`;
+  const sh=openSheet(html,'Réglages');
+  sh.querySelector('#sGeo').onchange=e=>{S.set.geoOn=e.target.checked;saveSet();if(e.target.checked)locate()};
+  const prep=sh.querySelector('#bkPrep');
+  prep.onclick=async()=>{
+    if(preparedFile){shareBackup(preparedFile);return}
+    const data={app:'depenses',version:1,date:new Date().toISOString(),trips:S.trips,expenses:S.exps,rates:S.rates,geo:Object.entries(S.geo).map(([k,name])=>({k,name}))};
+    const name='depenses-'+today()+'.json';
+    preparedFile=new File([JSON.stringify(data)],name,{type:'application/json'});
+    prep.textContent='Enregistrer le fichier';
+  };
+  sh.querySelector('#bkRest').onclick=()=>sh.querySelector('#bkFile').click();
+  sh.querySelector('#bkFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;
+    try{const j=JSON.parse(await f.text());if(j.app!=='depenses'||!Array.isArray(j.expenses))throw new Error('Ce fichier n\'est pas une sauvegarde de Dépenses.');
+      if(!confirm(`Restaurer ${j.trips.length} voyage(s) et ${j.expenses.length} dépense(s) ? Les données actuelles seront remplacées.`))return;
+      await tx('trips','readwrite',s=>s.clear());await tx('expenses','readwrite',s=>s.clear());
+      for(const t of j.trips)await dbPut('trips',t);for(const x of j.expenses)await dbPut('expenses',x);
+      for(const g of j.geo||[])await dbPut('geo',g);
+      S.trips=j.trips;S.exps=j.expenses;S.rates={...S.rates,...(j.rates||{})};saveRates();(j.geo||[]).forEach(g=>S.geo[g.k]=g.name);
+      if(!S.trips.find(t=>t.id===S.set.active))S.set.active=S.trips[0]?.id||null;saveSet();
+      closeSheet();render();toast('Sauvegarde restaurée')}catch(err){alert('Restauration impossible : '+(err.message||err))}};
+  sh.querySelector('#wipe').onclick=async()=>{if(!confirm('Effacer tous les voyages et toutes les dépenses ? Fais une sauvegarde avant si besoin.'))return;if(!confirm('Vraiment tout effacer ? C\'est définitif.'))return;
+    await tx('trips','readwrite',s=>s.clear());await tx('expenses','readwrite',s=>s.clear());S.trips=[];S.exps=[];S.set.active=null;saveSet();closeSheet();S.tab='journal';render()};
+}
+async function shareBackup(file){
+  const done=()=>{S.set.lastBackup=Date.now();saveSet();preparedFile=null;closeSheet();render();toast('Sauvegarde enregistrée')};
+  if(navigator.canShare&&navigator.canShare({files:[file]})){try{await navigator.share({files:[file],title:'Sauvegarde Dépenses'});done()}catch(e){if(e.name!=='AbortError')alert('Partage impossible : '+e.message)}return}
+  const a=document.createElement('a');a.href=URL.createObjectURL(file);a.download=file.name;document.body.append(a);a.click();a.remove();done();
+}
+
+/* ========= Démarrage ========= */
+function isStandalone(){return navigator.standalone||matchMedia('(display-mode: standalone)').matches}
+function prefetchRate(){const t=activeTrip();if(t&&t.cur!=='EUR')exactRate(t.cur,today()).then(x=>{if(x)renderTop()})}
+document.querySelectorAll('nav.tabs [data-tab]').forEach(b=>b.onclick=()=>{S.tab=b.dataset.tab;if(map){map.remove();map=null}render();window.scrollTo(0,0)});
+$('#plusBtn').onclick=()=>openEntry({});
+window.addEventListener('online',()=>{fixPending();fillMissingPlaces();prefetchRate()});
+(async()=>{
+  db=await openDB();
+  const [trips,exps,set,rates,geo]=await Promise.all([dbAll('trips'),dbAll('expenses'),kvGet('settings'),kvGet('rates'),dbAll('geo')]);
+  S.trips=trips||[];S.exps=exps||[];Object.assign(S.set,set||{});S.rates=rates||{};(geo||[]).forEach(g=>S.geo[g.k]=g.name);
+  if(!S.trips.find(t=>t.id===S.set.active))S.set.active=S.trips[0]?.id||null;
+  render();
+  if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{});
+  prefetchRate();fixPending();fillMissingPlaces();
+  if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
+})();
+</script>
+</body>
+</html>

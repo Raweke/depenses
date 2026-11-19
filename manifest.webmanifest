@@ -1,0 +1,14 @@
+{
+  "name": "Dépenses",
+  "short_name": "Dépenses",
+  "description": "Mes dépenses de voyage, en monnaie locale et en euros.",
+  "lang": "fr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F5F1E8",
+  "theme_color": "#0F7B68",
+  "icons": [
+    { "src": "icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
